@@ -1,39 +1,53 @@
 # Imports
-import ftplib
 import lzma
 import os
 import re
+import requests
 import shutil
 import sys
 import tarfile
 import urllib.request
 
 from argparse import ArgumentParser
+from bs4 import BeautifulSoup as bs
+from distutils.version import LooseVersion
+
+URL = 'https://ftp.postgresql.org/pub/source/'
 
 
-def get_last_pg_version(stable_version=True):
-    'Returns the last version of PostgreSQL available.'
+def get_all_pg_versions():
+    'Gets all PostgreSQL versions'
 
-    with ftplib.FTP('ftp.postgresql.org') as ftp:
-        ftp.login()  # Anonymous FTP login
-        ftp.cwd('pub/source')  # Change to source directory
-        versions = []  # List of versions
-        # re_pattern = r'^v(([0-9]{1,}\.){1,2}[0-9]{1,}$)'  # regex
-        re_pattern = r'^v((\d)*\.(\d)*)'
+    page = requests.get(URL).text
+    soup = bs(page, 'html.parser')    
+    pg_versions = []
+    anchors = (soup.find_all('a'))
+    re_pattern = r'^v((\d)*.*)'
 
-        if not stable_version:
-            re_pattern = r'^v(.*(alpha|beta).*)'
+    for i in anchors:
+        dir_ = i.extract().get_text()
+        if re.search(re_pattern, dir_):
+            version_ = re.sub(re_pattern, r'\1', dir_)
+            pg_versions.append(version_)
+        
 
-        # For each item found in FTP directory
-        for i in ftp.nlst():
-            if re.search(re_pattern, i):  # If pattern matches...
-                # ... append item to versions
-                versions.append(re.sub(re_pattern, r'\1', i))
+    return sorted(pg_versions, key=LooseVersion)
 
-        versions.sort()  # sort versions
-        pgversion = versions[-1]  # The latest version
 
-        return pgversion
+def pg_latest_version(stable_version=True):
+    versions = []
+    re_pattern = r'(\d)*\.(\d).*'
+
+    if not stable_version:
+        re_pattern = r'.*(alpha|beta).*'
+
+    for i in get_all_pg_versions():        
+        if re.search(re_pattern, i):  # If pattern matches...
+            # ... append item to versions
+            versions.append(i)
+
+    return versions[-1]
+    
 
 
 def extract_bz2(bz2_file):
@@ -70,6 +84,7 @@ def download_file(url, filename):
 
 
 def main():
+    n_args = len(sys.argv)
 
     # Strings
     desc_0 = 'Download the source code of PostgreSQL'
@@ -104,6 +119,8 @@ def main():
     xz_comp_y = args.xz_comp
     not_stable = args.not_stable
 
+    # ========================================================================
+
     if output_dir:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -113,16 +130,19 @@ def main():
     if not os.access(output_dir, os.W_OK):
         raise PermissionError
 
-    if not pg_version:
-        pg_version = get_last_pg_version(not_stable)
+    # ========================================================================
+
+    
+    if not pg_version:        
+        pg_version = pg_latest_version(not_stable)
+
+    print(pg_version)
 
     if download_y:
         base_name_file = 'postgresql-{}'.format(pg_version)  # Base name file
         dw_file = '{}.tar.bz2'.format(base_name_file)  # File to be downloaded
-        url = (
-               'ftp://ftp.postgresql.org/'
-               'pub/source/v{}/{}'.format(pg_version, dw_file)
-              )  # Full URL
+        
+        url = ('{}{}'.format(URL, 'v{}/{}')).format(pg_version, dw_file)
 
         output_file = '{}/{}'.format(output_dir, dw_file)
         download_file(url, output_file)
