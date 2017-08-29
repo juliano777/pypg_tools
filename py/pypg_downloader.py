@@ -136,8 +136,6 @@ def main():
     if not pg_version:        
         pg_version = pg_latest_version(not_stable)
 
-    print(pg_version)
-
     if download_y:
         base_name_file = 'postgresql-{}'.format(pg_version)  # Base name file
         dw_file = '{}.tar.bz2'.format(base_name_file)  # File to be downloaded
