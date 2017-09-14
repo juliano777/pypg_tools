@@ -6,20 +6,34 @@ import requests
 import shutil
 import sys
 import tarfile
-import urllib.request
 
 from argparse import ArgumentParser
 from bs4 import BeautifulSoup as bs
 from distutils.version import LooseVersion
+from urllib.error import URLError
+from urllib.request import urlopen
+from urllib.request import urlretrieve
 
+# URL root of all versions
 URL = 'https://ftp.postgresql.org/pub/source/'
 
 
+def check_url(url):
+    'This function checks if the URL exists'
+
+    try:
+        urlopen(url)
+        return True
+
+    except URLError:
+        return False
+
+
 def get_all_pg_versions():
-    'Gets all PostgreSQL versions'
+    'This function gets all PostgreSQL versions'
 
     page = requests.get(URL).text
-    soup = bs(page, 'html.parser')    
+    soup = bs(page, 'html.parser')
     pg_versions = []
     anchors = (soup.find_all('a'))
     re_pattern = r'^v((\d)*.*)'
@@ -29,36 +43,36 @@ def get_all_pg_versions():
         if re.search(re_pattern, dir_):
             version_ = re.sub(re_pattern, r'\1', dir_)
             pg_versions.append(version_)
-        
 
     return sorted(pg_versions, key=LooseVersion)
 
 
 def pg_latest_version(stable_version=True):
+    'This function gets the last version of PostgreSQL (stable or not)'
+
     versions = []
     re_pattern = r'(\d)*\.(\d).*'
 
     if not stable_version:
         re_pattern = r'.*(alpha|beta).*'
 
-    for i in get_all_pg_versions():        
+    for i in get_all_pg_versions():
         if re.search(re_pattern, i):  # If pattern matches...
             # ... append item to versions
             versions.append(i)
 
     return versions[-1]
-    
 
 
 def extract_bz2(bz2_file):
-    'Extract bz2 file'
+    'This function extracts bz2 file'
 
     with tarfile.open(bz2_file, 'r:bz2') as f:
         f.extractall()
 
 
 def to_tar(dir_name):
-    'Binds a directory to a tar file'
+    'This function binds a directory to a tar file'
 
     tar_file = '{}.tar'.format(dir_name)
     with tarfile.open(tar_file, 'w') as f:
@@ -66,6 +80,8 @@ def to_tar(dir_name):
 
 
 def to_xz(target_file):
+    'This function compress file to xz format'
+
     xz_file = '{}.xz'.format(target_file)
 
     with open(target_file, 'rb') as f:
@@ -76,10 +92,14 @@ def to_xz(target_file):
 
 
 def download_file(url, filename):
+    'This function downloads the PostgreSQL source code'
+    print(url)
+    return 0
+
     xzfile = '{}xz'.format(filename.strip('bz2'))
     if os.path.isfile(xzfile) or os.path.isfile(filename):
         return 0
-    urllib.request.urlretrieve(url, filename)
+    urlretrieve(url, filename)
     print('File downloaded!')
 
 
@@ -109,7 +129,7 @@ def main():
                         action='store_true', dest='xz_comp')
 
     parser.add_argument('-S', '--not-stable', help=help_S,
-                        action='store_false', dest='not_stable') 
+                        action='store_false', dest='not_stable')
 
     # Parsed arguments
     args = parser.parse_args()
@@ -132,16 +152,19 @@ def main():
 
     # ========================================================================
 
-    
-    if not pg_version:        
+    if not pg_version:
         pg_version = pg_latest_version(not_stable)
+
+    url = '{}{}'.format(URL, 'v{}'.format(pg_version))
+
+    if not check_url(url):
+        print('Error: Version {} does not exist!'.format(pg_version))
+        return 1
 
     if download_y:
         base_name_file = 'postgresql-{}'.format(pg_version)  # Base name file
         dw_file = '{}.tar.bz2'.format(base_name_file)  # File to be downloaded
-        
-        url = ('{}{}'.format(URL, 'v{}/{}')).format(pg_version, dw_file)
-
+        url = '{}/{}'.format(url, dw_file)
         output_file = '{}/{}'.format(output_dir, dw_file)
         download_file(url, output_file)
 
@@ -168,9 +191,6 @@ if __name__ == '__main__':
 
     except PermissionError:
         print('Error: Permission denied!')
-
-    except urllib.error.URLError:
-        print('Error: There is no version!')
 
     finally:
         sys.exit(1)
