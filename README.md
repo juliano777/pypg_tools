@@ -1,4 +1,5 @@
-# PyPgTools
+![PyPgTools logo](img/logo.png)
+
 
 ## Python Scripts to Administrate PostgreSQL
 
