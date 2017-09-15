@@ -93,8 +93,6 @@ def to_xz(target_file):
 
 def download_file(url, filename):
     'This function downloads the PostgreSQL source code'
-    print(url)
-    return 0
 
     xzfile = '{}xz'.format(filename.strip('bz2'))
     if os.path.isfile(xzfile) or os.path.isfile(filename):
