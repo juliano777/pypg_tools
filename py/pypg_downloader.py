@@ -54,7 +54,7 @@ def pg_latest_version(stable_version=True):
     re_pattern = r'(\d)*\.(\d).*'
 
     if not stable_version:
-        re_pattern = r'.*(alpha|beta).*'
+        re_pattern = r'.*(alpha|beta|rc).*'
 
     for i in get_all_pg_versions():
         if re.search(re_pattern, i):  # If pattern matches...
